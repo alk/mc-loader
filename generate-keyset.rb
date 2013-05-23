@@ -8,11 +8,17 @@ $opts = Trollop::options do
   opt :value_size, "size of values", :type => :int, :default => 1024
   opt :value, "value", :type => :string
   opt :random_value
+  opt :shuffle_keys
 end
 
 def generate_value
   @value ||= if $opts[:random_value]
-               File.open("/dev/urandom", "r") {|f| f.read($opts[:value_size])}
+               srand(0x34343434)
+               size = $opts[:value_size]
+
+               (size*3).times {rand(256)}
+
+               value = [size.times.map {rand(256).chr}.join('')].pack('m').gsub("\n",'')
              else
                begin
                  "a" * $opts[:value_size]
@@ -26,14 +32,55 @@ end
 #   print("%08d %s\n" % [i, value])
 # end
 
-i = $opts[:keys]-1
-
-value = $opts[:value] || generate_value
-
-STDERR.puts "value is: #{value.inspect}"
-
-suffix = " #{value}\n"
-while i >= 0
-  STDOUT << sprintf("%08d", i) << suffix
-  i -= 1
+def gcd(a,b)
+  return gcd(b, a) if a > b
+  return b if a == 0
+  gcd(b % a, a)
 end
+
+# p gcd(3, 7)
+
+# p gcd(2, 3)
+
+# p gcd(2, 1)
+
+# p gcd(44, 44)
+
+# p gcd(10, 6)
+
+# p gcd(100, 75)
+
+# exit
+
+def find_increment(keys)
+  initial = keys * 7 / 9
+  while gcd(keys, initial) != 1
+    initial -= 1
+  end
+  return initial
+end
+
+def run!
+  keys = $opts[:keys]
+  i = keys-1
+
+  value = $opts[:value] || generate_value
+
+  STDERR.puts "value is: #{value.inspect}"
+
+  suffix = " #{value}\n"
+
+  increment = 1
+  if $opts[:shuffle_keys]
+    increment = find_increment(keys)
+  end
+
+  c = i
+  while c >= 0
+    STDOUT << sprintf("%08d", i) << suffix
+    i = (i - increment) % keys
+    c -= 1
+  end
+end
+
+run!
